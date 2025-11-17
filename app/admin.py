@@ -1,18 +1,14 @@
 # rides/admin.py
 from django.contrib import admin
-from .models import (
-    PlaceToGo, CityPassenger, CityDriver, Ugur, UgurTo,
-    PassengerProfile, DriverProfile, Comment, Load,
-    NotificationDriver
-)
+from .models import *
 
-admin.site.register(PlaceToGo)
-admin.site.register(CityPassenger)
-admin.site.register(CityDriver)
+admin.site.register(Place)
+admin.site.register(User)
+admin.site.register(Booking)
 admin.site.register(Ugur)
-admin.site.register(UgurTo)
+admin.site.register(UgurRoute)
 admin.site.register(PassengerProfile)
 admin.site.register(DriverProfile)
-admin.site.register(Comment)
+admin.site.register(Review)
 admin.site.register(Load)
-admin.site.register(NotificationDriver)
+admin.site.register(DriverNotification)
