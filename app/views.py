@@ -5,7 +5,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend, FilterSet,NumberFilter,ChoiceFilter
+from django_filters.rest_framework import DjangoFilterBackend, NumberFilter,ChoiceFilter
 import django_filters.rest_framework as filters
 from rest_framework import viewsets, filters as drf_filters
 from rest_framework.views import APIView
@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from .models import (
     User, DriverProfile, PassengerProfile,
     Place, Ugur, UgurRoute, Booking,
-    Review, Load, DriverNotification
+    Review, Load, DriverNotification,CurrentPlace
 )
 from .serializers import (
     UserSerializer,
@@ -27,10 +27,11 @@ from .serializers import (
     UgurRouteSerializer,
     BookingSerializer,
     ReviewSerializer,
+    CurrentPlaceSerializer,
     LoadSerializer,
     DriverNotificationSerializer,
     OldFormatImportSerializer,
-)
+    )
 
 User = get_user_model()
 
@@ -115,6 +116,19 @@ class BookingViewSet(viewsets.ModelViewSet):
 class DriverProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DriverProfile.objects.select_related('user')
     serializer_class = DriverProfileSerializer
+
+class CurrentPlaceViewSet(viewsets.ModelViewSet):
+    queryset = CurrentPlace.objects.select_related('user')
+    serializer_class = CurrentPlaceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # Create wagty user-i request.user bilen baglaýar
+        serializer.save(user=self.request.user)
+
+    def get_queryset(self):
+        # User diňe öz ýerlerini görýär
+        return self.queryset.filter(user=self.request.user)
 
 
 class PassengerProfileViewSet(viewsets.ReadOnlyModelViewSet):

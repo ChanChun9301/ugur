@@ -5,7 +5,7 @@ from typing import Optional, Dict
 from .models import (
     User, DriverProfile, PassengerProfile,
     Place, Ugur, UgurRoute, Booking,
-    Review, Load, DriverNotification
+    Review, Load, DriverNotification,CurrentPlace
 )
 
 User = get_user_model()
@@ -110,6 +110,11 @@ class DriverProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = DriverProfile
         fields = '__all__'
+
+class CurrentPlaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CurrentPlace
+        exclude = ['user']  # user sahypasyny serializer-den aýyrýar
 
 
 # ===================================================================

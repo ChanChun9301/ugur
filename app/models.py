@@ -33,9 +33,9 @@ class DriverProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='driver_profile'
     )
-    marka = models.CharField(_("Марка авто"), max_length=100)
-    model = models.CharField(_("Модель авто"), max_length=100)
-    color = models.CharField(_("Цвет авто"), max_length=50, blank=True)
+    marka = models.CharField(_("Ulagyň markasy"), max_length=100)
+    model = models.CharField(_("Ulagyň modeli"), max_length=100)
+    color = models.CharField(_("Ulagyň reňki"), max_length=50, blank=True)
     car_number = models.CharField(
         _("Гос. номер"), max_length=10, unique=True,
         validators=[RegexValidator(r'^[A-Z]{2}\d{4}[A-Z]{2}$', message=_("Mysal ucin: AG123BH"))]
@@ -44,9 +44,9 @@ class DriverProfile(models.Model):
         _("Год выпуска"), validators=[MinValueValidator(1995), MaxValueValidator(2026)]
     )
     rating = models.DecimalField(_("Рейтинг водителя"), default=5.00, max_digits=3, decimal_places=2)
-    total_trips = models.PositiveIntegerField(_("Поездок выполнено"), default=0)
-    is_verified = models.BooleanField(_("Проверен админом"), default=False)
-    is_active = models.BooleanField(_("На линии"), default=True)
+    total_trips = models.PositiveIntegerField(_("Ýerine ýetiren syýahatlary"), default=0)
+    is_verified = models.BooleanField(_("Admin tarapyndan barlanan"), default=False)
+    is_active = models.BooleanField(_("Ulgamda"), default=True)
 
     class Meta:
         verbose_name = _("Sürüji")
@@ -55,6 +55,19 @@ class DriverProfile(models.Model):
     def __str__(self):
         return f"{self.user} — {self.marka} {self.model} ({self.car_number})"
 
+class CurrentPlace(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE,null=True,blank=True)
+    title = models.CharField(_("Ýeriň ady"), max_length=500)
+    description = models.TextField(_("Maglumat"), max_length=500)
+    latitude = models.CharField(_("Latitude"), max_length=500)
+    longitude = models.CharField(_("Longitude"), max_length=500)
+
+    class Meta:
+        verbose_name = _("Häzirki ýeri")
+        verbose_name_plural = _("Bolan ýerleri")
+
+    def __str__(self):
+        return f"{self.user} — {self.title}: {self.latitude} ({self.longitude})"
 
 # ===================================================================
 # 3. Ýolagçynyň profili (islege bagly, ilkinji syýahat wagtynda döredildi)
@@ -153,8 +166,8 @@ class UgurRoute(models.Model):
     stops = models.JSONField(_("Aralyk duralgalar"), blank=True, default=list)
 
     class Meta:
-        verbose_name = _("Маршрут")
-        verbose_name_plural = _("Маршруты")
+        verbose_name = _("Ugur")
+        verbose_name_plural = _("Ugurlar")
         ordering = ['departure_date', 'departure_time']
 
     def __str__(self):

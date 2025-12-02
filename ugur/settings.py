@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    'rangefilter', 
     'app'
 ]
 

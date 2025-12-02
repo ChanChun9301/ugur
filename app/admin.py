@@ -5,7 +5,7 @@ from django.contrib import messages
 from .utils import send_push_to_driver
 from .models import (
     User, DriverProfile, PassengerProfile,
-    Place, Ugur, UgurRoute,
+    Place, Ugur, UgurRoute,CurrentPlace,
     Booking, Review, Load, DriverNotification
 )
 
@@ -154,3 +154,11 @@ class DriverNotificationAdmin(admin.ModelAdmin):
     list_filter = ("is_seen", "created")
     search_fields = ("driver__phone", "message")
     actions = [send_driver_notifications]
+
+
+@admin.register(CurrentPlace)
+class CurrentPlaceAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "title", "latitude", "longitude")
+    search_fields = ("title", "description", "user__username", "user__phone")
+    list_filter = ("user",)  # islege görä wagt/ulanyjy boýunça filter goşup bolýar
+    ordering = ("-id",)

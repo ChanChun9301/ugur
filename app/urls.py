@@ -20,6 +20,7 @@ from .views import (
     LoadViewSet,
     DriverNotificationViewSet,
     ImportOldUgurView,
+    CurrentPlaceViewSet
 )
 
 # ===================================================================
@@ -34,6 +35,7 @@ router.register(r'ugurs', UgurViewSet, basename='ugur')
 router.register(r'routes', UgurRouteViewSet, basename='ugurroute')
 router.register(r'bookings', BookingViewSet, basename='booking')
 router.register(r'reviews', ReviewViewSet, basename='review')
+router.register(r'current', CurrentPlaceViewSet, basename='current')
 router.register(r'loads', LoadViewSet, basename='load')
 router.register(r'driver-notifications', DriverNotificationViewSet, basename='drivernotification')
 
