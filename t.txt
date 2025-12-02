@@ -1,0 +1,7 @@
+ {
+    "id": 1,
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "title": "Central Park",
+    "description": "New York City, NY"
+  },

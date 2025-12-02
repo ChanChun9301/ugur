@@ -9,7 +9,6 @@ from drf_spectacular.views import (
 )
 
 from .views import (
-    # Новые ViewSet’ы
     UserViewSet,
     DriverProfileViewSet,
     PassengerProfileViewSet,
@@ -20,13 +19,11 @@ from .views import (
     ReviewViewSet,
     LoadViewSet,
     DriverNotificationViewSet,
-
-    # Специально для импорта старых заказов (который мы делали раньше)
     ImportOldUgurView,
 )
 
 # ===================================================================
-# Роутер
+# Router
 # ===================================================================
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
@@ -40,22 +37,11 @@ router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'loads', LoadViewSet, basename='load')
 router.register(r'driver-notifications', DriverNotificationViewSet, basename='drivernotification')
 
-# ===================================================================
-# Основные URL’ы
-# ===================================================================
 urlpatterns = [
     # API
     path('', include(router.urls)),
-
-    # Импорт старых заказов (временно, пока фронт не обновится)
     path('import-old-ugur/', ImportOldUgurView.as_view(), name='import-old-ugur'),
-
-    # OpenAPI схема
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
-
-    # Swagger UI (красиво и удобно для разработчиков и тестировщиков)
     path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-
-    # Redoc (ещё красивее)
     path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]

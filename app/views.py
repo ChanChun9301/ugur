@@ -8,6 +8,8 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticate
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet,NumberFilter,ChoiceFilter
 import django_filters.rest_framework as filters
 from rest_framework import viewsets, filters as drf_filters
+from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from .models import (
     User, DriverProfile, PassengerProfile,
@@ -27,14 +29,14 @@ from .serializers import (
     ReviewSerializer,
     LoadSerializer,
     DriverNotificationSerializer,
-    OldFormatImportSerializer,  # наш импортёр старых заказов
+    OldFormatImportSerializer,
 )
 
 User = get_user_model()
 
 
 # ===================================================================
-# 1. ПОЛЬЗОВАТЕЛИ
+# 1. Ulanyjylar
 # ===================================================================
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.filter(is_active=True)
@@ -44,7 +46,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # ===================================================================
-# 2. ГОРОДА
+# 2. Şäherler
 # ===================================================================
 class PlaceViewSet(viewsets.ModelViewSet):
     queryset = Place.objects.all()
@@ -56,7 +58,7 @@ class PlaceViewSet(viewsets.ModelViewSet):
 
 
 # ===================================================================
-# 3. ПОЕЗДКИ (Ugur)
+# 3. Syýahat (Ugur)
 # ===================================================================
 class UgurViewSet(viewsets.ModelViewSet):
     queryset = Ugur.objects.filter(is_active=True).select_related('owner', 'driver').prefetch_related('routes')
@@ -78,7 +80,7 @@ class UgurViewSet(viewsets.ModelViewSet):
 
 
 # ===================================================================
-# 4. МАРШРУТЫ
+# 4. Ugurlar
 # ===================================================================
 class UgurRouteViewSet(viewsets.ModelViewSet):
     queryset = UgurRoute.objects.select_related('from_place', 'to_place', 'ugur__owner')
@@ -90,7 +92,7 @@ class UgurRouteViewSet(viewsets.ModelViewSet):
 
 
 # ===================================================================
-# 5. БРОНИРОВАНИЯ
+# 5. Bronlamak
 # ===================================================================
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.select_related('passenger', 'route__from_place', 'route__to_place')
@@ -108,7 +110,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 
 # ===================================================================
-# 6. ПРОФИЛИ
+# 6. Profiller
 # ===================================================================
 class DriverProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DriverProfile.objects.select_related('user')
@@ -121,7 +123,7 @@ class PassengerProfileViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # ===================================================================
-# 7. ОТЗЫВЫ
+# 7. Bellikler
 # ===================================================================
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.select_related('from_user', 'to_user')
@@ -133,7 +135,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
 
 # ===================================================================
-# 8. ГРУЗЫ
+# 8. Ýükler
 # ===================================================================
 
 class LoadFilter(filters.FilterSet):
@@ -141,27 +143,25 @@ class LoadFilter(filters.FilterSet):
     ugur = NumberFilter(field_name='ugur')
     route = NumberFilter(field_name='route')
 
-    # Если хочешь фильтровать по городам — делаем через связь
     from_place = NumberFilter(field_name='ugur__routes__from_place', lookup_expr='exact')
     to_place = NumberFilter(field_name='ugur__routes__to_place', lookup_expr='exact')
 
     class Meta:
         model = Load
-        fields = ['status', 'ugur', 'route']  # ← только настоящие поля!
-        # НЕ пиши сюда from_place, to_place, is_completed — их нет в модели!
+        fields = ['status', 'ugur', 'route']
 
 class LoadViewSet(viewsets.ModelViewSet):
     queryset = Load.objects.select_related('sender', 'ugur', 'route').all()
     serializer_class = LoadSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_class = LoadFilter  # ← используем правильный фильтр
+    filterset_class = LoadFilter 
     search_fields = ['description', 'receiver_name']
     ordering_fields = ['created', 'price']
 
 
 # ===================================================================
-# 9. УВЕДОМЛЕНИЯ ВОДИТЕЛЯ
+# 9. Sürüjiniň bildirişi
 # ===================================================================
 class DriverNotificationViewSet(viewsets.ModelViewSet):
     serializer_class = DriverNotificationSerializer
@@ -170,8 +170,14 @@ class DriverNotificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return DriverNotification.objects.filter(driver=self.request.user)
 
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("pk", int, OpenApiParameter.PATH),
+        ]
+    )
     @action(detail=True, methods=['post'])
-    def mark_as_seen(self, request, pk=None):
+    def mark_as_seen(self, request, pk:int=None):
         notification = self.get_object()
         notification.is_seen = True
         notification.save()
@@ -179,12 +185,13 @@ class DriverNotificationViewSet(viewsets.ModelViewSet):
 
 
 # ===================================================================
-# 10. ИМПОРТ СТАРЫХ ЗАКАЗОВ (временно, пока фронт старый)
+# 10. Köne sargytlary import etmek
 # ===================================================================
-from rest_framework.views import APIView
+
 
 class ImportOldUgurView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = OldFormatImportSerializer
 
     def post(self, request):
         data = request.data[0] if isinstance(request.data, list) else request.data

@@ -1,4 +1,3 @@
-# rides/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
@@ -10,25 +9,25 @@ from django.utils import timezone
 
 
 # ===================================================================
-# 1. ПОЛЬЗОВАТЕЛЬ (один аккаунт — и Sürüji, и Ýolagçy)
+# 1. Ulanyjy (Bir akkaund — hem Sürüji, hem Ýolagçy)
 # ===================================================================
 class User(AbstractUser):
     phone = models.CharField(
-        _("Телефон"),
+        _("Telefon"),
         max_length=17,
         unique=True,
-        validators=[RegexValidator(regex=r'^\+993\d{8}$', message=_("Только +993xxxxxxxx"))],
-        help_text=_("Обязательно для входа и уведомлений")
+        validators=[RegexValidator(regex=r'^\+993\d{8}$', message=_("Diňe +993xxxxxxxx"))],
+        help_text=_("Giriş we habarnamalar üçin zerur")
     )
-    is_driver = models.BooleanField(_("Является водителем"), default=False)
-    is_passenger = models.BooleanField(_("Является Ýolagçyом"), default=True)  # все по умолчанию Ýolagçyы
+    is_driver = models.BooleanField(_("Sürüji"), default=False)
+    is_passenger = models.BooleanField(_("Ýolagçy"), default=True)
 
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.phone})"
 
 
 # ===================================================================
-# 2. ПРОФИЛЬ ВОДИТЕЛЯ (создаётся только если is_driver = True)
+# 2. Sürüjiniň profili (Eger diňe is_driver = True bolsa döredilýär)
 # ===================================================================
 class DriverProfile(models.Model):
     user = models.OneToOneField(
@@ -58,22 +57,22 @@ class DriverProfile(models.Model):
 
 
 # ===================================================================
-# 3. ПРОФИЛЬ ÝolagçyА (опционально, создаётся при первой поездке)
+# 3. Ýolagçynyň profili (islege bagly, ilkinji syýahat wagtynda döredildi)
 # ===================================================================
 class PassengerProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='passenger_profile'
     )
-    rating = models.DecimalField(_("Рейтинг Ýolagçyа"), default=5.00, max_digits=3, decimal_places=2)
-    total_rides = models.PositiveIntegerField(_("Поездок совершено"), default=0)
+    rating = models.DecimalField(_("Ýolagçynyň reýtingi"), default=5.00, max_digits=3, decimal_places=2)
+    total_rides = models.PositiveIntegerField(_("Syýahat tamamlandy"), default=0)
 
     class Meta:
         verbose_name = _("Ýolagçy")
-        verbose_name_plural = _("Ýolagçyы")
+        verbose_name_plural = _("Ýolagçylar")
 
 
 # ===================================================================
-# 4. ГОРОДА / МЕСТА (общие для всех)
+# 4. Şäher / Ýer (Hemmelere el ýeterli)
 # ===================================================================
 class Place(models.Model):
     name = models.CharField(_("Ýeriň ady"), max_length=200, unique=True)
@@ -89,7 +88,7 @@ class Place(models.Model):
 
 
 # ===================================================================
-# 5. ПОЕЗДКА (Ugur) — основное объявление
+# 5. Syýahat (Ugur) — Bildiriş üçin esasy
 # ===================================================================
 class Ugur(models.Model):
     class Type(models.TextChoices):
@@ -113,8 +112,8 @@ class Ugur(models.Model):
     views = models.PositiveIntegerField(_("Görülen"), default=0)
 
     class Meta:
-        verbose_name = _("Поездка (Ugur)")
-        verbose_name_plural = _("Поездки (Ugur)")
+        verbose_name = _("Syýahat (Ugur)")
+        verbose_name_plural = _("Syýahatlar (Ugur)")
         ordering = ['-created_at']
 
     def __str__(self):
@@ -136,7 +135,7 @@ class Ugur(models.Model):
 
 
 # ===================================================================
-# 6. МАРШРУТ ПОЕЗДКИ
+# 6. Syaýahtyň ugry
 # ===================================================================
 class UgurRoute(models.Model):
     ugur = models.ForeignKey(Ugur, on_delete=models.CASCADE, related_name='routes')
@@ -167,7 +166,7 @@ class UgurRoute(models.Model):
 
 
 # ===================================================================
-# 7. БРОНИРОВАНИЕ
+# 7. Bronlamak
 # ===================================================================
 class Booking(models.Model):
     class Status(models.TextChoices):
@@ -185,26 +184,26 @@ class Booking(models.Model):
 
     class Meta:
         unique_together = ['route', 'passenger']
-        verbose_name = _("Бронь")
-        verbose_name_plural = _("Брони")
+        verbose_name = _("Bron")
+        verbose_name_plural = _("Bronlar")
 
     def __str__(self):
         return f"{self.passenger} → {self.route} ({self.seats_booked} Orun)"
 
 
 # ===================================================================
-# 8. ОТЗЫВЫ
+# 8. Bellikler
 # ===================================================================
 class Review(models.Model):
     to_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received')
     from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
-    rating = models.PositiveSmallIntegerField(_("Оценка"), validators=[MinValueValidator(1), MaxValueValidator(5)])
-    comment = models.TextField(_("Отзыв"), blank=True)
+    rating = models.PositiveSmallIntegerField(_("Baha"), validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.TextField(_("Bellik"), blank=True)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = _("Отзыв")
-        verbose_name_plural = _("Отзывы")
+        verbose_name = _("Bellik")
+        verbose_name_plural = _("Bellikler")
         unique_together = ['to_user', 'from_user', 'created']  # один отзыв за поездку
 
     def __str__(self):
@@ -212,24 +211,24 @@ class Review(models.Model):
 
 
 # ===================================================================
-# 9. ГРУЗОПЕРЕВОЗКИ
+# 9. Kargolar
 # ===================================================================
 class Load(models.Model):
     class Status(models.TextChoices):
         SEARCHING = 'searching', _("Sürüji gözlenýär")
-        ASSIGNED = 'assigned', _("Sürüji tapylgy")       # привязан к поездке
+        ASSIGNED = 'assigned', _("Sürüji tapylgy") 
         IN_TRANSIT = 'in_transit', _("Ýolda")
         DELIVERED = 'delivered', _("Gowşuryldy")
         CANCELLED = 'cancelled', _("Ýatyryldy")
 
-    # Кто создал заказ на груз
+    # Ýük üçin sargydy kim döretdi
     sender = models.ForeignKey(
         User, on_delete=models.CASCADE,
         related_name='sent_loads',
         verbose_name=_("Ugradýan")
     )
 
-    # К какой поездке привязан груз (главное!)
+    # Haýsy esasy ugra berkidilen
     ugur = models.ForeignKey(
         Ugur, on_delete=models.SET_NULL,
         null=True, blank=True,
@@ -237,7 +236,7 @@ class Load(models.Model):
         verbose_name=_("Baglanan ýol")
     )
 
-    # Опционально — конкретный маршрут (если у поездки несколько)
+    # Anyk urgy
     route = models.ForeignKey(
         UgurRoute, on_delete=models.SET_NULL,
         null=True, blank=True,
@@ -245,7 +244,7 @@ class Load(models.Model):
         verbose_name=_("Baglanan ugur")
     )
 
-    # Что везём
+    # Näme alyp barýas
     description = models.TextField(_("Näme alyp gitmeli"))
     weight_kg = models.PositiveSmallIntegerField(_("Agyrlygy (kg)"), null=True, blank=True)
     size = models.CharField(_("Ölçegi"), max_length=100, blank=True, help_text="Mysal: 50x40x30 sm")
@@ -253,11 +252,11 @@ class Load(models.Model):
     receiver_name = models.CharField(_("Kabul edýäniň ady"), max_length=200)
     receiver_phone = models.CharField(_("Kabul edýäniň telefon belgisi"), max_length=17)
 
-    # Деньги
+    # Nyrhy
     price = models.DecimalField(_("Baha (TMT)"), max_digits=10, decimal_places=2, null=True, blank=True)
     price_negotiable = models.BooleanField(_("Baha gepleşiler"), default=True)
 
-    # Статус и время
+    # Statusy we wagty
     status = models.CharField(_("Ýagdaýy"), max_length=20, choices=Status.choices, default=Status.SEARCHING)
     created = models.DateTimeField(_("Döredildi"), auto_now_add=True)
     updated = models.DateTimeField(_("Täzelendi"), auto_now=True)
@@ -274,7 +273,6 @@ class Load(models.Model):
 
     def save(self, *args, **kwargs):
         self.updated = timezone.now()
-        # Автоматически меняем статус, если привязали к поездке
         if self.ugur and self.status == Load.Status.SEARCHING:
             self.status = Load.Status.ASSIGNED
         super().save(*args, **kwargs)
@@ -297,7 +295,7 @@ class Load(models.Model):
 
 
 # ===================================================================
-# 10. УВЕДОМЛЕНИЯ ДЛЯ ВОДИТЕЛЕЙ
+# 10. Sürüjilere bildiriş
 # ===================================================================
 class DriverNotification(models.Model):
     driver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
@@ -314,4 +312,4 @@ class DriverNotification(models.Model):
         ordering = ['-created']
 
     def __str__(self):
-        return f"{self.from_place}→{self.to_place} для {self.driver}"
+        return f"{self.from_place}→{self.to_place} üçin {self.driver}"

@@ -1,6 +1,7 @@
 # rides/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from typing import Optional, Dict
 from .models import (
     User, DriverProfile, PassengerProfile,
     Place, Ugur, UgurRoute, Booking,
@@ -9,7 +10,7 @@ from .models import (
 
 User = get_user_model()
 
-# ========================== ИМПОРТ СТАРЫХ ЗАКАЗОВ ==========================
+# ========================== Köne sargytlaryň importy ==========================
 from django.db import transaction
 from datetime import datetime
 
@@ -23,7 +24,7 @@ class OldFormatImportSerializer(serializers.Serializer):
         required = ['date_to_go', 'time_to_go', 'driver']
         for field in required:
             if field not in data:
-                raise serializers.ValidationError(f"Обязательное поле: {field}")
+                raise serializers.ValidationError(f"Hökmany setir: {field}")
         return data
 
     @transaction.atomic
@@ -32,26 +33,26 @@ class OldFormatImportSerializer(serializers.Serializer):
         passengers_data = validated_data['passengers']
         created_time_str = validated_data['created']
 
-        # 1. Водитель по старому ID
+        # 1. Sürüji köne ID boýunça
         driver_user = User.objects.get(driver_profile__id=ugur_data['driver'])
 
-        # 2. Создаём Ugur
+        # 2. Ugur döredýäris
         ugur = Ugur.objects.create(
             owner=driver_user,
             driver=driver_user,
             type=Ugur.Type.DRIVER,
-            title="Импортированная поездка"
+            title="Import edilen syýahat"
         )
 
-        # 3. Парсим дату и время
+        # 3. Wagty parsit edýäris
         dep_date = datetime.strptime(ugur_data['date_to_go'], "%d.%m.%y").date()
         dep_time = datetime.strptime(ugur_data['time_to_go'], "%H:%M").time()
 
-        # 4. Города (создаём если нет)
-        from_place, _ = Place.objects.get_or_create(name="Ашхабад")
-        to_place, _ = Place.objects.get_or_create(name="Не указано")
+        # 4. Şäherler
+        from_place, _ = Place.objects.get_or_create(name="Aşgabat")
+        to_place, _ = Place.objects.get_or_create(name="Görkezilmedik")
 
-        # 5. Маршрут
+        # 5. Ugur
         route = UgurRoute.objects.create(
             ugur=ugur,
             from_place=from_place,
@@ -59,10 +60,10 @@ class OldFormatImportSerializer(serializers.Serializer):
             departure_date=dep_date,
             departure_time=dep_time,
             available_seats=4,
-            comment=f"Импорт из старой системы в {created_time_str}"
+            comment=f"{created_time_str}-da köne ulgamdan import"
         )
 
-        # 6. Брони
+        # 6. Bronlar
         created_bookings = 0
         for p in passengers_data:
             try:
@@ -72,7 +73,7 @@ class OldFormatImportSerializer(serializers.Serializer):
                     passenger=passenger_user,
                     seats_booked=1,
                     status=Booking.Status.CONFIRMED,
-                    comment="Автоимпорт"
+                    comment="Awtoimport"
                 )
                 created_bookings += 1
             except User.DoesNotExist:
@@ -85,7 +86,7 @@ class OldFormatImportSerializer(serializers.Serializer):
         }
 
 # ===================================================================
-# 1. БАЗОВЫЙ ПОЛЬЗОВАТЕЛЬ
+# 1. Esasy ulanyjy
 # ===================================================================
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
@@ -100,7 +101,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 2. ПРОФИЛЬ ВОДИТЕЛЯ
+# 2. Sürüjiniň profili
 # ===================================================================
 class DriverProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -112,7 +113,7 @@ class DriverProfileSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 3. ПРОФИЛЬ ПАССАЖИРА
+# 3. Ýolagçynyň profili
 # ===================================================================
 class PassengerProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -123,7 +124,7 @@ class PassengerProfileSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 4. ГОРОД / МЕСТО
+# 4. Şäher / Ýer
 # ===================================================================
 class PlaceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -132,11 +133,10 @@ class PlaceSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 5. МАРШРУТ ПОЕЗДКИ (UgurRoute)
+# 5. Syýahadyň ugurlary (UgurRoute)
 # ===================================================================
 
 class UgurForRouteSerializer(serializers.ModelSerializer):
-    """Лёгкая версия Ugur — только нужные поля для вложенности в маршрут"""
     driver = UserSerializer(read_only=True)
     owner = UserSerializer(read_only=True)
     type_display = serializers.CharField(source='get_type_display', read_only=True)
@@ -170,7 +170,7 @@ class UgurRouteSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 6. БРОНИРОВАНИЕ
+# 6. Bronlamak
 # ===================================================================
 class BookingSerializer(serializers.ModelSerializer):
     passenger = UserSerializer(read_only=True)
@@ -189,10 +189,9 @@ class BookingSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 7. ОСНОВНАЯ ПОЕЗДКА (Ugur)
+# 7.Esasy syýahat (Ugur)
 # ===================================================================
 class UgurListSerializer(serializers.ModelSerializer):
-    """Для списков — лёгкий вариант"""
     driver = UserSerializer(read_only=True)
     owner = UserSerializer(read_only=True)
     main_route = UgurRouteSerializer(source='routes.first', read_only=True)
@@ -207,9 +206,8 @@ class UgurListSerializer(serializers.ModelSerializer):
             'main_route', 'route_count'
         ]
 
-
 class UgurDetailSerializer(serializers.ModelSerializer):
-    """Полная детализация поездки"""
+    """Syýahat barada doly maglumat"""
     owner = UserSerializer(read_only=True)
     driver = UserSerializer(read_only=True)
     driver_profile = DriverProfileSerializer(source='driver.driver_profile', read_only=True)
@@ -221,9 +219,8 @@ class UgurDetailSerializer(serializers.ModelSerializer):
         model = Ugur
         fields = '__all__'
 
-
 class UgurCreateSerializer(serializers.ModelSerializer):
-    """Для создания поездки (водителем)"""
+    """Syýahat döretmek üçin (sürüjilere)"""
     routes = UgurRouteSerializer(many=True)
 
     class Meta:
@@ -244,7 +241,7 @@ class UgurCreateSerializer(serializers.ModelSerializer):
 
 
 # ===================================================================
-# 8. ОТЗЫВЫ
+# 8. Bellikler
 # ===================================================================
 class ReviewSerializer(serializers.ModelSerializer):
     from_user = UserSerializer(read_only=True)
@@ -255,9 +252,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['from_user']
 
-
 # ===================================================================
-# 9. ГРУЗОПЕРЕВОЗКИ
+# 9. Kargolar
 # ===================================================================
 class LoadSerializer(serializers.ModelSerializer):
     from_place = serializers.SerializerMethodField()
@@ -269,21 +265,19 @@ class LoadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Load
-        fields = '__all__'  # теперь безопасно — from_place/to_place нет в модели
+        fields = '__all__'  
         read_only_fields = ['sender', 'status', 'created', 'updated']
 
-    # Вот и всё! Берём из @property
-    def get_from_place(self, obj):
+    def get_from_place(self, obj) -> Optional[dict]:
         place = obj.from_place
         return PlaceSerializer(place).data if place else None
 
-    def get_to_place(self, obj):
+    def get_to_place(self, obj) -> Optional[dict]:
         place = obj.to_place
         return PlaceSerializer(place).data if place else None
 
-
 # ===================================================================
-# 10. УВЕДОМЛЕНИЯ ВОДИТЕЛЮ
+# 10. Sürüji üçin bildiriş
 # ===================================================================
 class DriverNotificationSerializer(serializers.ModelSerializer):
     driver = UserSerializer(read_only=True)
