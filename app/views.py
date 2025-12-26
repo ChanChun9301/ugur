@@ -10,6 +10,11 @@ import django_filters.rest_framework as filters
 from rest_framework import viewsets, filters as drf_filters
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import PhoneTokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import RegisterSerializer
+from rest_framework import generics, permissions
 
 from .models import (
     User, DriverProfile, PassengerProfile,
@@ -31,17 +36,90 @@ from .serializers import (
     LoadSerializer,
     DriverNotificationSerializer,
     OldFormatImportSerializer,
+    DriverProfileUpdateSerializer
     )
 
 User = get_user_model()
 
 
+
+# ===================================================================
+# 0. Auth
+# ===================================================================
+class PhoneTokenObtainPairView(TokenObtainPairView):
+    serializer_class = PhoneTokenObtainPairSerializer
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"detail": "Logged out"}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception:
+            return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            data = {
+                'phone': user.phone,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_driver': user.is_driver,
+                'is_passenger': user.is_passenger,
+            }
+            if user.is_driver:
+                driver = user.driver_profile
+                data['driver_profile'] = {
+                    'marka': driver.marka,
+                    'model': driver.model,
+                    'car_number': driver.car_number,
+                    'car_year': driver.car_year,
+                    'color': driver.color,
+                }
+            return Response(data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UpdateRolesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        is_driver = request.data.get('is_driver', user.is_driver)
+        is_passenger = request.data.get('is_passenger', user.is_passenger)
+        driver_profile_data = request.data.get('driver_profile')
+
+        user.is_driver = is_driver
+        user.is_passenger = is_passenger
+        user.save()
+
+        if is_driver:
+            profile, created = DriverProfile.objects.get_or_create(user=user)
+            if driver_profile_data:
+                serializer = DriverProfileSerializer(profile, data=driver_profile_data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Если пользователь больше не водитель, можно удалить профиль водителя или деактивировать
+            DriverProfile.objects.filter(user=user).delete()
+
+        return Response({'detail': 'Роли обновлены'}, status=status.HTTP_200_OK)
+        
 # ===================================================================
 # 1. Ulanyjylar
 # ===================================================================
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
     filter_backends = [drf_filters.SearchFilter]
     search_fields = ['phone', 'first_name', 'last_name']
 
@@ -113,6 +191,18 @@ class BookingViewSet(viewsets.ModelViewSet):
 # ===================================================================
 # 6. Profiller
 # ===================================================================
+class DriverProfileUpdateView(generics.UpdateAPIView, generics.CreateAPIView):
+    serializer_class = DriverProfileUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        # Получаем или создаём профиль водителя для текущего пользователя
+        profile, created = DriverProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.request.user)
+
 class DriverProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DriverProfile.objects.select_related('user')
     serializer_class = DriverProfileSerializer
@@ -219,3 +309,4 @@ class ImportOldUgurView(APIView):
                 "bookings": result["bookings_created"]
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

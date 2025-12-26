@@ -14,6 +14,59 @@ User = get_user_model()
 from django.db import transaction
 from datetime import datetime
 
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
+
+
+class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = 'phone'
+
+class DriverProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DriverProfile
+        fields = ('marka', 'model', 'car_number', 'car_year', 'color')
+
+
+class DriverProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DriverProfile
+        fields = ('marka', 'model', 'car_number', 'car_year', 'color')
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    driver_profile = DriverProfileSerializer(required=False)
+
+    class Meta:
+        model = User
+        fields = (
+            'phone',
+            'first_name',
+            'last_name',
+            'is_driver',
+            'is_passenger',
+            'driver_profile',
+        )
+
+    def validate(self, attrs):
+        if attrs.get('is_driver') and 'driver_profile' not in self.initial_data:
+            raise serializers.ValidationError({
+                'driver_profile': 'Это поле обязательно для водителей'
+            })
+        return attrs
+
+    def create(self, validated_data):
+        driver_data = validated_data.pop('driver_profile', None)
+        user = User.objects.create(**validated_data)
+
+        if user.is_driver and driver_data:
+            DriverProfile.objects.create(user=user, **driver_data)
+
+        return user
+
+
+
+
+
 
 class OldFormatImportSerializer(serializers.Serializer):
     ugur = serializers.DictField()

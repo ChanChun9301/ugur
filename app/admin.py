@@ -37,13 +37,29 @@ def send_driver_notifications(modeladmin, request, queryset):
 # ===============================================================
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ("username", "phone", "is_driver", "is_passenger", "is_staff")
-    search_fields = ("username", "phone")
+    # Список полей в таблице
+    list_display = ("phone", "first_name", "last_name", "is_driver", "is_passenger", "is_staff")
+    search_fields = ("phone", "first_name", "last_name")
     list_filter = ("is_driver", "is_passenger", "is_staff", "is_superuser")
-    
-    # Ulanyjy modeline goşmaça meýdanlar goşýarys
-    fieldsets = BaseUserAdmin.fieldsets + (
-        ("Goşmaça maglumat", {"fields": ("phone", "is_driver", "is_passenger")}),
+
+    # Сортировка
+    ordering = ("phone",)
+
+    # Поля для просмотра/редактирования пользователя
+    fieldsets = (
+        (None, {"fields": ("phone", "password")}),
+        ("Personal info", {"fields": ("first_name", "last_name")}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Roles", {"fields": ("is_driver", "is_passenger")}),
+        ("Important dates", {"fields": ("last_login", "date_joined")}),
+    )
+
+    # Поля для добавления нового пользователя через админку
+    add_fieldsets = (
+        (None, {
+            "classes": ("wide",),
+            "fields": ("phone", "first_name", "last_name", "password1", "password2", "is_driver", "is_passenger"),
+        }),
     )
 
 
@@ -53,7 +69,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(DriverProfile)
 class DriverProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "car_number", "marka", "model", "rating", "is_verified", "is_active")
-    search_fields = ("user__username", "user__phone", "car_number", "marka", "model")
+    search_fields = ("user__phone", "user__phone", "car_number", "marka", "model")
     list_filter = ("is_verified", "is_active", "color", "car_year")
 
 
@@ -63,7 +79,7 @@ class DriverProfileAdmin(admin.ModelAdmin):
 @admin.register(PassengerProfile)
 class PassengerProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "rating", "total_rides")
-    search_fields = ("user__username", "user__phone")
+    search_fields = ("user__phone",)
 
 
 # ===============================================================
@@ -159,6 +175,6 @@ class DriverNotificationAdmin(admin.ModelAdmin):
 @admin.register(CurrentPlace)
 class CurrentPlaceAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "title", "latitude", "longitude")
-    search_fields = ("title", "description", "user__username", "user__phone")
+    search_fields = ("title", "description",  "user__phone")
     list_filter = ("user",)  # islege görä wagt/ulanyjy boýunça filter goşup bolýar
     ordering = ("-id",)

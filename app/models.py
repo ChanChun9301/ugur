@@ -11,19 +11,43 @@ from django.utils import timezone
 # ===================================================================
 # 1. Ulanyjy (Bir akkaund — hem Sürüji, hem Ýolagçy)
 # ===================================================================
+from django.contrib.auth.base_user import BaseUserManager
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, phone, password=None, **extra_fields):
+        if not phone:
+            raise ValueError("The Phone must be set")
+        user = self.model(phone=phone, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, phone, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+        return self.create_user(phone, password, **extra_fields)
+
+
 class User(AbstractUser):
+    username = None
+    email = None
+
     phone = models.CharField(
-        _("Telefon"),
+        _("Телефон"),
         max_length=17,
         unique=True,
-        validators=[RegexValidator(regex=r'^\+993\d{8}$', message=_("Diňe +993xxxxxxxx"))],
-        help_text=_("Giriş we habarnamalar üçin zerur")
+        validators=[RegexValidator(regex=r'^\+993\d{8}$')],
+        help_text=_("Необходим для входа и уведомлений")
     )
-    is_driver = models.BooleanField(_("Sürüji"), default=False)
-    is_passenger = models.BooleanField(_("Ýolagçy"), default=True)
+    is_driver = models.BooleanField(default=False)
+    is_passenger = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"{self.get_full_name() or self.username} ({self.phone})"
+    USERNAME_FIELD = 'phone'
+    REQUIRED_FIELDS = []
+
+    objects = UserManager()
 
 
 # ===================================================================
