@@ -30,8 +30,7 @@ INSTALLED_APPS = [
     "rest_framework",
     'rest_framework.authtoken',
     'rest_framework_simplejwt.token_blacklist',
-    "drf_spectacular",
-    "drf_spectacular_sidecar",
+    "drf_yasg",
     'rangefilter', 
     'app'
 ]
@@ -64,7 +63,7 @@ TEMPLATES = [
 ]
 
 REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%S%z",  # с +05:00
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
@@ -77,7 +76,18 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "100 ugra",
     "DESCRIPTION": "API documentation",
     "VERSION": "1.0.0",
+    "SECURITY": [{"BearerAuth": []}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
 }
+
 
 
 WSGI_APPLICATION = 'ugur.wsgi.application'

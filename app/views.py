@@ -9,12 +9,17 @@ from django_filters.rest_framework import DjangoFilterBackend, NumberFilter,Choi
 import django_filters.rest_framework as filters
 from rest_framework import viewsets, filters as drf_filters
 from rest_framework.views import APIView
+from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import PhoneTokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
 from .serializers import RegisterSerializer
 from rest_framework import generics, permissions
+
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .models import (
     User, DriverProfile, PassengerProfile,
@@ -36,7 +41,8 @@ from .serializers import (
     LoadSerializer,
     DriverNotificationSerializer,
     OldFormatImportSerializer,
-    DriverProfileUpdateSerializer
+    DriverProfileUpdateSerializer,
+    RegisterResponseSerializer
     )
 
 User = get_user_model()
@@ -46,9 +52,25 @@ User = get_user_model()
 # ===================================================================
 # 0. Auth
 # ===================================================================
+# @extend_schema(exclude=True)
 class PhoneTokenObtainPairView(TokenObtainPairView):
     serializer_class = PhoneTokenObtainPairSerializer
 
+@extend_schema(
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "refresh": {"type": "string"},
+            },
+            "required": ["refresh"],
+        }
+    },
+    responses={
+        205: {"description": "Logged out"},
+        400: {"description": "Invalid token"},
+    },
+)
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -61,8 +83,18 @@ class LogoutView(APIView):
         except Exception:
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class RegisterView(APIView):
+    '''
+        Register
+    '''
+    @swagger_auto_schema(
+    operation_description="Taze registrasiya",
+    request_body=RegisterSerializer,
+    responses={
+        201: RegisterResponseSerializer,
+        400: "Nadogry maglumat"
+    }
+    )
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -83,8 +115,10 @@ class RegisterView(APIView):
                     'car_year': driver.car_year,
                     'color': driver.color,
                 }
+           
             return Response(data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class UpdateRolesView(APIView):
     permission_classes = [IsAuthenticated]
@@ -112,7 +146,9 @@ class UpdateRolesView(APIView):
             DriverProfile.objects.filter(user=user).delete()
 
         return Response({'detail': 'Роли обновлены'}, status=status.HTTP_200_OK)
-        
+
+
+
 # ===================================================================
 # 1. Ulanyjylar
 # ===================================================================
@@ -206,6 +242,7 @@ class DriverProfileUpdateView(generics.UpdateAPIView, generics.CreateAPIView):
 class DriverProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DriverProfile.objects.select_related('user')
     serializer_class = DriverProfileSerializer
+    
 
 class CurrentPlaceViewSet(viewsets.ModelViewSet):
     queryset = CurrentPlace.objects.select_related('user')

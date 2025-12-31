@@ -1,6 +1,7 @@
 # rides/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from typing import Optional, Dict
 from .models import (
     User, DriverProfile, PassengerProfile,
@@ -17,7 +18,6 @@ from datetime import datetime
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 
-
 class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'phone'
 
@@ -25,16 +25,24 @@ class DriverProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DriverProfile
         fields = ('marka', 'model', 'car_number', 'car_year', 'color')
+        ref_name = 'DriverProfileUpdate'
 
 
 class DriverProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = DriverProfile
         fields = ('marka', 'model', 'car_number', 'car_year', 'color')
+        ref_name = 'DriverProfile'
+
+class DriverProfileRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DriverProfile
+        fields = ('marka', 'model', 'car_number', 'car_year', 'color')
+        ref_name = 'DriverProfileRequest'
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    driver_profile = DriverProfileSerializer(required=False)
+    driver_profile = DriverProfileRequestSerializer(required=False)
 
     class Meta:
         model = User
@@ -46,6 +54,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'is_passenger',
             'driver_profile',
         )
+        ref_name = "RegisterRequestSerializer"
 
     def validate(self, attrs):
         if attrs.get('is_driver') and 'driver_profile' not in self.initial_data:
@@ -60,9 +69,18 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         if user.is_driver and driver_data:
             DriverProfile.objects.create(user=user, **driver_data)
+        
+            
 
         return user
 
+class RegisterResponseSerializer(serializers.ModelSerializer):
+    driver_profile = serializers.DictField(required=False)  # для водителей
+    
+    class Meta:
+        model = User
+        fields = ['phone', 'first_name', 'last_name', 'is_driver', 'is_passenger', 'driver_profile']
+        ref_name = "RegisterResponseSerializer"
 
 
 
