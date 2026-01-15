@@ -252,7 +252,7 @@ class Booking(models.Model):
     passenger = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
     seats_booked = models.PositiveSmallIntegerField(_("Orun"), default=1)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    comment = models.TextField(_("Teswir"), blank=True)
+    # comment = models.TextField(_("Teswir"), blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
