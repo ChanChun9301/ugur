@@ -21,6 +21,31 @@ from django.contrib.auth import authenticate
 class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'phone'
 
+    role = serializers.ChoiceField(choices=['driver', 'passenger'], write_only=True)
+
+    def validate(self, attrs):
+        role = attrs.pop('role')  # убираем role перед auth
+        data = super().validate(attrs)
+
+        user = self.user
+
+        if role == 'driver' and not user.is_driver:
+            raise serializers.ValidationError('Ulanyjy sürüji däl')
+
+        if role == 'passenger' and not user.is_passenger:
+            raise serializers.ValidationError('Ulanyjy yolagcy däl')
+
+        # добавляем роль в ответ
+        data['role'] = role
+        data['user'] = {
+            'id': user.id,
+            'phone': user.phone,
+            'is_driver': user.is_driver,
+            'is_passenger': user.is_passenger,
+        }
+
+        return data
+
 class DriverProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DriverProfile
@@ -43,47 +68,57 @@ class DriverProfileRequestSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     driver_profile = DriverProfileRequestSerializer(required=False)
+    role = serializers.ChoiceField(choices=['driver', 'passenger'], write_only=True)
 
     class Meta:
         model = User
-        fields = (
-            'phone',
-            'first_name',
-            'last_name',
-            'is_driver',
-            'is_passenger',
-            'driver_profile',
-        )
-        ref_name = "RegisterRequestSerializer"
+        fields = ('phone', 'first_name', 'last_name', 'password', 'role', 'driver_profile')
+        extra_kwargs = {'password': {'write_only': True, 'required': True}}
+
+    def validate_driver_profile(self, value):
+        role = self.initial_data.get('role')
+        if role != 'driver' and value is not None:
+            raise serializers.ValidationError(
+                "Driver profile bolmaly diňe role='driver' bolan ýagdaýynda."
+            )
+        return value
 
     def validate(self, attrs):
-        if attrs.get('is_driver') and 'driver_profile' not in self.initial_data:
+        role = attrs.get('role')
+        if role == 'driver' and 'driver_profile' not in self.initial_data:
             raise serializers.ValidationError({
-                'driver_profile': 'Это поле обязательно для водителей'
+                'driver_profile': 'Driver profile zerur, role="driver" bolanda.'
             })
         return attrs
 
     def create(self, validated_data):
         driver_data = validated_data.pop('driver_profile', None)
-        user = User.objects.create(**validated_data)
+        password = validated_data.pop('password')
+        role = validated_data.pop('role')
+
+        validated_data['is_driver'] = role == 'driver'
+        validated_data['is_passenger'] = role == 'passenger'
+
+        user = User.objects.create_user(password=password, **validated_data)
+
+        print('### Created user:', user.is_passenger)
 
         if user.is_driver and driver_data:
             DriverProfile.objects.create(user=user, **driver_data)
-        
-            
+
+        if user.is_passenger:
+            PassengerProfile.objects.create(user=user)
+            print('### Created passenger profile for user:', user.phone)
 
         return user
 
 class RegisterResponseSerializer(serializers.ModelSerializer):
-    driver_profile = serializers.DictField(required=False)  # для водителей
+    driver_profile = serializers.DictField(required=False)
     
     class Meta:
         model = User
         fields = ['phone', 'first_name', 'last_name', 'is_driver', 'is_passenger', 'driver_profile']
         ref_name = "RegisterResponseSerializer"
-
-
-
 
 
 class OldFormatImportSerializer(serializers.Serializer):

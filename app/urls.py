@@ -3,7 +3,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.urls import path
-from .views import RegisterView, UpdateRolesView
+from .views import RegisterView
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -52,15 +52,12 @@ urlpatterns = [
     # API
     path('', include(router.urls)),
     path('import-old-ugur/', ImportOldUgurView.as_view(), name='import-old-ugur'),
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    # path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    # path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     #Auth
     path('auth/register/', RegisterView.as_view(), name='register'),
-    path('auth/update-roles/', UpdateRolesView.as_view(), name='update_roles'),
-
-
     path('auth/login/', PhoneTokenObtainPairView.as_view()),
     path('auth/logout/', LogoutView.as_view()),
     # path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

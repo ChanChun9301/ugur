@@ -84,28 +84,32 @@ class LogoutView(APIView):
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
 class RegisterView(APIView):
-    '''
-        Register
-    '''
+
     @swagger_auto_schema(
-    operation_description="Taze registrasiya",
-    request_body=RegisterSerializer,
-    responses={
-        201: RegisterResponseSerializer,
-        400: "Nadogry maglumat"
-    }
+        operation_description="Ulanyjy hasaba alyş",
+        request_body=RegisterSerializer,
     )
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
+        print('!!!',serializer.initial_data)
         if serializer.is_valid():
             user = serializer.save()
+
+            # создаём JWT токен
+            token = str(RefreshToken.for_user(user).access_token)
+
+            print('###',user)
+
+            # формируем response
             data = {
                 'phone': user.phone,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'is_driver': user.is_driver,
-                'is_passenger': user.is_passenger,
+                'role': 'driver' if user.is_driver else 'passenger',
+                'token': token,
             }
+
+            # добавляем driver_profile, если пользователь водитель
             if user.is_driver:
                 driver = user.driver_profile
                 data['driver_profile'] = {
@@ -115,39 +119,10 @@ class RegisterView(APIView):
                     'car_year': driver.car_year,
                     'color': driver.color,
                 }
-           
+
             return Response(data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class UpdateRolesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        user = request.user
-        is_driver = request.data.get('is_driver', user.is_driver)
-        is_passenger = request.data.get('is_passenger', user.is_passenger)
-        driver_profile_data = request.data.get('driver_profile')
-
-        user.is_driver = is_driver
-        user.is_passenger = is_passenger
-        user.save()
-
-        if is_driver:
-            profile, created = DriverProfile.objects.get_or_create(user=user)
-            if driver_profile_data:
-                serializer = DriverProfileSerializer(profile, data=driver_profile_data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-                else:
-                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            # Если пользователь больше не водитель, можно удалить профиль водителя или деактивировать
-            DriverProfile.objects.filter(user=user).delete()
-
-        return Response({'detail': 'Роли обновлены'}, status=status.HTTP_200_OK)
-
-
 
 # ===================================================================
 # 1. Ulanyjylar
@@ -242,6 +217,15 @@ class DriverProfileUpdateView(generics.UpdateAPIView, generics.CreateAPIView):
 class DriverProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DriverProfile.objects.select_related('user')
     serializer_class = DriverProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        profile = get_object_or_404(DriverProfile, user=request.user)
+        serializer = self.get_serializer(profile)
+        return Response(serializer.data)
+
+    
     
 
 class CurrentPlaceViewSet(viewsets.ModelViewSet):
@@ -261,6 +245,12 @@ class CurrentPlaceViewSet(viewsets.ModelViewSet):
 class PassengerProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PassengerProfile.objects.select_related('user')
     serializer_class = PassengerProfileSerializer
+
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        profile = get_object_or_404(PassengerProfile, user=request.user)
+        serializer = self.get_serializer(profile)
+        return Response(serializer.data)
 
 
 # ===================================================================

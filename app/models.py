@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 
 
@@ -17,7 +18,7 @@ from django.contrib.auth.base_user import BaseUserManager
 class UserManager(BaseUserManager):
     def create_user(self, phone, password=None, **extra_fields):
         if not phone:
-            raise ValueError("The Phone must be set")
+            raise ValueError("Telefon belgisi zerurdyr")
         user = self.model(phone=phone, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -29,25 +30,32 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_active', True)
         return self.create_user(phone, password, **extra_fields)
 
-
 class User(AbstractUser):
     username = None
     email = None
 
     phone = models.CharField(
-        _("Телефон"),
+        _("Telefon belgisi"),
         max_length=17,
-        unique=True,
+        unique=False,
         validators=[RegexValidator(regex=r'^\+993\d{8}$')],
-        help_text=_("Необходим для входа и уведомлений")
+        help_text=_("Mysal: +99361234567"),
     )
     is_driver = models.BooleanField(default=False)
-    is_passenger = models.BooleanField(default=True)
+    is_passenger = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+    def clean(self):
+        if self.is_driver and self.is_passenger:
+            raise ValidationError("Ulanyjy bir wagtyň özünde hem sürüji, hem-de ýolagçy bolup bilmez.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean() 
+        super().save(*args, **kwargs)
 
 
 # ===================================================================
@@ -61,20 +69,20 @@ class DriverProfile(models.Model):
     model = models.CharField(_("Ulagyň modeli"), max_length=100)
     color = models.CharField(_("Ulagyň reňki"), max_length=50, blank=True)
     car_number = models.CharField(
-        _("Гос. номер"), max_length=10, unique=True,
+        _("Dowlet belgisi "), max_length=10, unique=True,
         validators=[RegexValidator(r'^[A-Z]{2}\d{4}[A-Z]{2}$', message=_("Mysal ucin: AG123BH"))]
     )
     car_year = models.PositiveSmallIntegerField(
-        _("Год выпуска"), validators=[MinValueValidator(1995), MaxValueValidator(2026)]
+        _("Cykan yyly"), validators=[MinValueValidator(1995), MaxValueValidator(2026)]
     )
-    rating = models.DecimalField(_("Рейтинг водителя"), default=5.00, max_digits=3, decimal_places=2)
+    rating = models.DecimalField(_("Surujinin reytingi"), default=5.00, max_digits=3, decimal_places=2)
     total_trips = models.PositiveIntegerField(_("Ýerine ýetiren syýahatlary"), default=0)
     is_verified = models.BooleanField(_("Admin tarapyndan barlanan"), default=False)
     is_active = models.BooleanField(_("Ulgamda"), default=True)
 
     class Meta:
         verbose_name = _("Sürüji")
-        verbose_name_plural = _("Водители")
+        verbose_name_plural = _("Sürüjiler")
 
     def __str__(self):
         return f"{self.user} — {self.marka} {self.model} ({self.car_number})"
@@ -146,7 +154,7 @@ class Ugur(models.Model):
     updated_at = models.DateTimeField(_("Täzelendi"), auto_now=True)
     is_active = models.BooleanField(_("Işjeň"), default=True, db_index=True)
     is_completed = models.BooleanField(_("Tamamlandy"), default=False)
-    views = models.PositiveIntegerField(_("Görülen"), default=0)
+    # views = models.PositiveIntegerField(_("Görülen"), default=0)
 
     class Meta:
         verbose_name = _("Syýahat (Ugur)")
@@ -186,8 +194,8 @@ class UgurRoute(models.Model):
     price_per_seat = models.DecimalField(
         _("Ýer üçin baha (TMT)"), max_digits=8, decimal_places=2, null=True, blank=True
     )
-    comment = models.TextField(_("Teswirler"), blank=True)
-    stops = models.JSONField(_("Aralyk duralgalar"), blank=True, default=list)
+    # comment = models.TextField(_("Teswirler"), blank=True)
+    # stops = models.JSONField(_("Aralyk duralgalar"), blank=True, default=list)
 
     class Meta:
         verbose_name = _("Ugur")
