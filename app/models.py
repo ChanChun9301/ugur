@@ -31,8 +31,7 @@ class UserManager(BaseUserManager):
         return self.create_user(phone, password, **extra_fields)
 
 class User(AbstractUser):
-    username = None
-    email = None
+    email = None  # username ОСТАЁТСЯ
 
     phone = models.CharField(
         _("Telefon belgisi"),
@@ -41,21 +40,48 @@ class User(AbstractUser):
         validators=[RegexValidator(regex=r'^\+993\d{8}$')],
         help_text=_("Mysal: +99361234567"),
     )
+
     is_driver = models.BooleanField(default=False)
     is_passenger = models.BooleanField(default=False)
 
-    USERNAME_FIELD = 'phone'
-    REQUIRED_FIELDS = []
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['phone']
 
     objects = UserManager()
 
-    def clean(self):
-        if self.is_driver and self.is_passenger:
-            raise ValidationError("Ulanyjy bir wagtyň özünde hem sürüji, hem-de ýolagçy bolup bilmez.")
-
     def save(self, *args, **kwargs):
-        self.full_clean() 
-        super().save(*args, **kwargs)
+        # автозаполнение username и проверка уникальности
+        if not self.username:
+            base_username = self.phone
+            username = base_username
+            counter = 1
+
+            while User.objects.filter(username=username).exists():
+                counter += 1
+                username = f"{base_username}_{counter}"
+
+            self.username = username
+
+        super().save(*args, **kwargs)  # сохраняем пользователя
+
+
+    def set_role(self, role):
+        """Меняем роль пользователя: 'driver' или 'passenger'"""
+        if role == 'driver':
+            self.is_driver = True
+            self.is_passenger = False
+            self.save()
+            # создаём профиль, если ещё нет
+            DriverProfile.objects.get_or_create(user=self)
+        elif role == 'passenger':
+            self.is_driver = False
+            self.is_passenger = True
+            self.save()
+            PassengerProfile.objects.get_or_create(user=self)
+        else:
+            raise ValueError("Недопустимая роль")
+
+
 
 
 # ===================================================================
@@ -87,19 +113,6 @@ class DriverProfile(models.Model):
     def __str__(self):
         return f"{self.user} — {self.marka} {self.model} ({self.car_number})"
 
-class CurrentPlace(models.Model):
-    user = models.ForeignKey(User,on_delete=models.CASCADE,null=True,blank=True)
-    title = models.CharField(_("Ýeriň ady"), max_length=500)
-    description = models.TextField(_("Maglumat"), max_length=500)
-    latitude = models.CharField(_("Latitude"), max_length=500)
-    longitude = models.CharField(_("Longitude"), max_length=500)
-
-    class Meta:
-        verbose_name = _("Häzirki ýeri")
-        verbose_name_plural = _("Bolan ýerleri")
-
-    def __str__(self):
-        return f"{self.user} — {self.title}: {self.latitude} ({self.longitude})"
 
 # ===================================================================
 # 3. Ýolagçynyň profili (islege bagly, ilkinji syýahat wagtynda döredildi)
@@ -115,6 +128,21 @@ class PassengerProfile(models.Model):
         verbose_name = _("Ýolagçy")
         verbose_name_plural = _("Ýolagçylar")
 
+
+
+class CurrentPlace(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE,null=True,blank=True)
+    title = models.CharField(_("Ýeriň ady"), max_length=500)
+    description = models.TextField(_("Maglumat"), max_length=500)
+    latitude = models.CharField(_("Latitude"), max_length=500)
+    longitude = models.CharField(_("Longitude"), max_length=500)
+
+    class Meta:
+        verbose_name = _("Häzirki ýeri")
+        verbose_name_plural = _("Bolan ýerleri")
+
+    def __str__(self):
+        return f"{self.user} — {self.title}: {self.latitude} ({self.longitude})"
 
 # ===================================================================
 # 4. Şäher / Ýer (Hemmelere el ýeterli)

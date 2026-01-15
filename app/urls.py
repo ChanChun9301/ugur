@@ -26,7 +26,8 @@ from .views import (
     CurrentPlaceViewSet,
     LogoutView,
     PhoneTokenObtainPairView,
-    RegisterView
+    RegisterView,
+    ChangeRoleView
 )
 
 # ===================================================================
@@ -60,6 +61,7 @@ urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/login/', PhoneTokenObtainPairView.as_view()),
     path('auth/logout/', LogoutView.as_view()),
+    path('auth/change-role/', ChangeRoleView.as_view(), name='change-role'),
     # path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 

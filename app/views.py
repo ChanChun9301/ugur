@@ -52,7 +52,20 @@ User = get_user_model()
 # ===================================================================
 # 0. Auth
 # ===================================================================
-# @extend_schema(exclude=True)
+@extend_schema(
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "phone": {"type": "string"},
+                "password": {"type": "string"},
+                "role": {"type": "string", "enum": ["driver", "passenger"]},
+            },
+            "required": ["phone", "password", "role"],
+        }
+    },
+    responses={200: "JWT Token"},
+)
 class PhoneTokenObtainPairView(TokenObtainPairView):
     serializer_class = PhoneTokenObtainPairSerializer
 
@@ -225,8 +238,6 @@ class DriverProfileViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
 
-    
-    
 
 class CurrentPlaceViewSet(viewsets.ModelViewSet):
     queryset = CurrentPlace.objects.select_related('user')
@@ -337,3 +348,36 @@ class ImportOldUgurView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class ChangeRoleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangeRoleSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            role = serializer.validated_data['role']
+            user = request.user
+
+            # меняем роль
+            if role == 'driver':
+                user.is_driver = True
+                user.is_passenger = False
+                user.save()
+                # создаём профиль водителя, если ещё нет
+                from app.models import DriverProfile
+                DriverProfile.objects.get_or_create(user=user)
+            elif role == 'passenger':
+                user.is_driver = False
+                user.is_passenger = True
+                user.save()
+                # создаём профиль пассажира, если ещё нет
+                from app.models import PassengerProfile
+                PassengerProfile.objects.get_or_create(user=user)
+
+            return Response({
+                'id': user.id,
+                'phone': user.phone,
+                'is_driver': user.is_driver,
+                'is_passenger': user.is_passenger
+            })
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

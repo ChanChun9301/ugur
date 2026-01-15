@@ -1,6 +1,7 @@
 # rides/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from typing import Optional, Dict
 from .models import (
@@ -18,33 +19,58 @@ from datetime import datetime
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 
-class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):
-    username_field = 'phone'
 
-    role = serializers.ChoiceField(choices=['driver', 'passenger'], write_only=True)
+class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = 'phone'  # 🔑 используем phone вместо username
+    phone = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    role = serializers.ChoiceField(
+        choices=['driver', 'passenger'],
+        write_only=True
+    )
 
     def validate(self, attrs):
-        role = attrs.pop('role')  # убираем role перед auth
-        data = super().validate(attrs)
+        phone = attrs.get('phone')
+        password = attrs.get('password')
+        role = attrs.get('role')
 
-        user = self.user
+        # 🔹 ручная аутентификация
+        user = authenticate(username=phone, password=password)
+        if not user:
+            raise serializers.ValidationError("Неверный телефон или пароль")
 
+        # 🔹 проверка роли
         if role == 'driver' and not user.is_driver:
             raise serializers.ValidationError('Ulanyjy sürüji däl')
-
         if role == 'passenger' and not user.is_passenger:
-            raise serializers.ValidationError('Ulanyjy yolagcy däl')
+            raise serializers.ValidationError('Ulanyjy ýolagçy däl')
 
-        # добавляем роль в ответ
-        data['role'] = role
-        data['user'] = {
-            'id': user.id,
-            'phone': user.phone,
-            'is_driver': user.is_driver,
-            'is_passenger': user.is_passenger,
+        # 🔹 создаём JWT вручную
+        refresh = RefreshToken.for_user(user)
+        access = str(refresh.access_token)
+
+        # 🔹 формируем ответ
+        return {
+            'user': {
+                'id': user.id,
+                'phone': user.phone,
+                'is_driver': user.is_driver,
+                'is_passenger': user.is_passenger,
+            },
+            'role': role,
+            'token': access,
+            'refresh': str(refresh)
         }
 
-        return data
+class ChangeRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=['driver', 'passenger'])
+
+    def validate_role(self, value):
+        user = self.context['request'].user
+        if (value == 'driver' and user.is_driver) or (value == 'passenger' and user.is_passenger):
+            raise serializers.ValidationError("У пользователя уже такая роль")
+        return value
 
 class DriverProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -100,8 +126,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data['is_passenger'] = role == 'passenger'
 
         user = User.objects.create_user(password=password, **validated_data)
-
-        print('### Created user:', user.is_passenger)
 
         if user.is_driver and driver_data:
             DriverProfile.objects.create(user=user, **driver_data)
@@ -212,6 +236,7 @@ class UserSerializer(serializers.ModelSerializer):
 class DriverProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     car_display = serializers.CharField(source='__str__', read_only=True)
+    car_year = serializers.IntegerField()
 
     class Meta:
         model = DriverProfile
@@ -257,18 +282,18 @@ class UgurForRouteSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'type', 'type_display',
             'owner', 'driver', 'is_active', 'is_completed',
-            'created_at', 'views'
+            'created_at',
         ]
 
 class UgurRouteSerializer(serializers.ModelSerializer):
     from_place = PlaceSerializer(read_only=True)
     to_place = PlaceSerializer(read_only=True)
-    from_place_id = serializers.PrimaryKeyRelatedField(
-        queryset=Place.objects.all(), source='from_place', write_only=True
-    )
-    to_place_id = serializers.PrimaryKeyRelatedField(
-        queryset=Place.objects.all(), source='to_place', write_only=True
-    )
+    # from_place_id = serializers.PrimaryKeyRelatedField(
+    #     queryset=Place.objects.all(), source='from_place', write_only=True
+    # )
+    # to_place_id = serializers.PrimaryKeyRelatedField(
+    #     queryset=Place.objects.all(), source='to_place', write_only=True
+    # )
     date_display = serializers.CharField(source='get_date_display', read_only=True)
     time_display = serializers.CharField(source='get_time_display', read_only=True, allow_null=True)
 
@@ -285,11 +310,11 @@ class UgurRouteSerializer(serializers.ModelSerializer):
 # ===================================================================
 class BookingSerializer(serializers.ModelSerializer):
     passenger = UserSerializer(read_only=True)
-    passenger_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(is_passenger=True),
-        source='passenger',
-        write_only=True
-    )
+    # passenger_id = serializers.PrimaryKeyRelatedField(
+    #     queryset=User.objects.filter(is_passenger=True),
+    #     source='passenger',
+    #     write_only=True
+    # )
     route = UgurRouteSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
@@ -313,7 +338,7 @@ class UgurListSerializer(serializers.ModelSerializer):
         model = Ugur
         fields = [
             'id', 'owner', 'driver', 'type', 'type_display', 'title',
-            'created_at', 'is_active', 'is_completed', 'views',
+            'created_at', 'is_active', 'is_completed',
             'main_route', 'route_count'
         ]
 
